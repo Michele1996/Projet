@@ -116,8 +116,7 @@ def main_entry_point(argv=None):
             lemma=""
             #On ouvre le fichier contenant le texte brut
             file = open('/mnt/c/Users/miche/Desktop/monfichier2.txt',encoding='latin-1',errors='ignore')
-            #On ouvre aussi le fichier arff et on lui inscrit l'intete
-            b = open("/mnt/c/Users/miche/Desktop/dete.arff", 'a', encoding='latin-1')
+
             listoflist=[]
             import arff
             
@@ -137,7 +136,8 @@ def main_entry_point(argv=None):
             
             u=0
             # On prende les mentions avec leur contexte droit et gauche"""
-            res = results.copy()
+            import copy
+            res = copy.copy(results)
             for row1 in results:
                 save=" "
             # uma2 sera la seule mention. row1 est la mention dans son context, donc on cherche a avoir row[content] qui est la mention en lui enlevant les caracteres superflues """
@@ -271,9 +271,9 @@ def main_entry_point(argv=None):
                 cas=0
                 conllu = str(conllu).split("\n")
                 kas=0
-                en1 =""
-                gn1=""
-                num1=""
+                en1 ="NULL"
+                gn1="NULL"
+                num1="NULL"
                 el = si.find(uma22)
                 
                 gm=model.tokenize(si[el-4:el+len(uma22)])
@@ -300,18 +300,18 @@ def main_entry_point(argv=None):
                 #On recherche la mention et on regarde a sa gauche pour trouver la balise <func>,<org> etc...
                 Stringa_comparaison=uma22
                 uma5=uma2
-                print(uma5)
+                
                 if "'" in uma5[:2]:
                    uma5=uma2[2:]
                 if " " in uma5[:3]:
                    uma5=uma2[3:]
                 elif " " in uma5[:4]:
                    uma5=uma2[4:]
-                print(uma5)
+                
                 entity = pine.find(uma5)
-                print(entity)
+                
                 ent=pine[entity-7:entity]
-                print(ent)
+                en=""
                 if "func" in ent:
                     en="FUNC"
                 if "pers" in ent:
@@ -320,6 +320,8 @@ def main_entry_point(argv=None):
                     en="LOC"
                 if "org" in ent:
                     en="ORG"
+                if en != "ORG" and en != "PERS" and en != "LOC" and en != "FUNC":
+                    en="NULL"
                 if case:
                    if uma2 in stringa and str(con-1) in stringa:
                       gp="CASE=YES"
@@ -341,6 +343,8 @@ def main_entry_point(argv=None):
                           gn="FEM"
                        if 'Gender=Masc' in c:
                           gn="MASC"
+                       if gn != "MASC" and gn!="FEM":
+                          gn="NULL"
                        if 'Number=Sing' in c:
                           num="SING"
                        if 'Number=Plur' in c:
@@ -351,7 +355,7 @@ def main_entry_point(argv=None):
                        case=True
                     i=i+1
                         
-               
+                    m_type=row['sys_tag']
                 
                      
                 
@@ -386,11 +390,15 @@ def main_entry_point(argv=None):
                     
                 #On va faire la meme chose pour chaque couple de mentions. Donc mention1, mention2, mention1, mention3 ectt, double for
                 for row2 in res:
-                    uma2= str(row2['content']).replace('[','').replace(']','').replace('\'','').replace(',','').replace('<start>','').replace('<end>','').replace('\"','').replace("\"m\" ","m'").replace("\"qu\" il","qu'il").replace("\"l\" ","l'").replace("  "," ").replace("\"d\" ","d'").replace("\"n\" ","n'").replace("m ","m'").replace("d ","d'").replace("l ","l'").replace("qu  ","qu'").replace("-","")
+                    if "content" in row2.keys():
+                        
+                        uma2= str(row2['content']).replace('[','').replace(']','').replace('\'','').replace(',','').replace('<start>','').replace('<end>','').replace('\"','').replace("\"m\" ","m'").replace("\"qu\" il","qu'il").replace("\"l\" ","l'").replace("  "," ").replace("\"d\" ","d'").replace("\"n\" ","n'").replace("m ","m'").replace("d ","d'").replace("l ","l'").replace("qu  ","qu'").replace("-","")
+                    
                     uma2= uma2.replace("*","\'")
                     sen = []
                     bool=False
-                    sen.append(uma2[0])       # put first letter in list. First letter doesn't need a space.
+                    if len(uma2) > 0:
+                       sen.append(uma2[0])       # put first letter in list. First letter doesn't need a space.
                     for char in uma2[1::]:         # begin iteration after first letter
                         if char.islower():
                            sen.append(char) # if character is lower add to list
@@ -441,9 +449,9 @@ def main_entry_point(argv=None):
                     cas=0
                     conllu = str(conllu).split("\n")
                     kas=0
-                    en =""
-                    gn=""
-                    num=""
+                    en1 =""
+                    gn1=""
+                    num1=""
                     el = si.find(uma22)
                     Stringa_comparaison1=uma22
                     gm=model.tokenize(si[el-4:el+len(uma22)])
@@ -467,26 +475,28 @@ def main_entry_point(argv=None):
                 
                     pine=pine.replace("' ","'")
                     uma5=uma2
-                    print(uma5)
+                    
                     if "'" in uma5[:2]:
                        uma5=uma2[2:]
                     if " " in uma5[:3]:
                        uma5=uma2[3:]
                     elif " " in uma5[:4]:
                        uma5=uma2[4:]
-                    print(uma5)
+                    
                     entity = pine.find(uma5)
-                    print(entity)
+                    
                     ent=pine[entity-7:entity]
-                    print(ent)
+                    
                     if "func" in ent:
-                       en="FUNC"
+                       en1="FUNC"
                     if "pers" in ent:
-                       en="PERS"
+                       en1="PERS"
                     if "loc" in ent:
-                       en="LOC"
+                       en1="LOC"
                     if "org" in ent:
-                       en="ORG"
+                       en1="ORG"
+                    if en1 != "ORG" and en1 != "PERS" and en1 != "LOC" and en1 != "FUNC":
+                       en1="NULL"
                     if case:
                        if uma2 in stringa and str(con-1) in stringa:
                           gp="CASE=YES"
@@ -505,19 +515,22 @@ def main_entry_point(argv=None):
                       
                       
                            if 'Gender=Fem' in c:
-                              gn="FEM"
+                              gn1="FEM"
                            if 'Gender=Masc' in c:
-                              gn="MASC"
+                              gn1="MASC"
+                           if gn1 != "MASC" and gn1 !="FEM":
+                              gn1="NULL"
                            if 'Number=Sing' in c:
-                              num="SING"
+                              num1="SING"
                            if 'Number=Plur' in c:
-                              num="PLUR"
+                              num1="PLUR"
                            if "si=\"case\"" in c and i==(cas+1):
-                              gp="CASE=YES"
+                              gp1="CASE=YES"
                               stringa=uma22
                               case=True
                         i=i+1
                         
+                        m1_type=row2['sys_tag']
                
                 
                      
@@ -587,19 +600,22 @@ def main_entry_point(argv=None):
                          data={"mention":[{"mention" : uma2 , "Entité Nommée": en ,"Gendre": gn ,"Nombre": num ,"GP": gp}]}
                      
                          json.dump(data,g,ensure_ascii=False, indent=4)
-                         a=[gn1,gn,en1,en,num1,num,gp1,gp,id_form, sub_form,inc_rate,dis_men,dis_phrase, dis_char]
-                         listoflist.append(a)
+                         if Stringa_comparaison != Stringa_comparaison1:
+                            a=[m_type,m1_type,gn1,gn,en1,en,num1,num,gp1,gp,id_form, sub_form,inc_rate,dis_men,dis_phrase, dis_char]
+                            listoflist.append(a)
                          
                 obj = {
                           'description': u'mention',
                           'relation':"men",
                           'attributes': [
-                          ('gn', ['MASC', 'FEM']),
-                          ('gn1', ['MASC', 'FEM']),
+                          ('m_type',['N','PR','NULL']),
+                          ('m1_type',['N','PR','NULL']),
+                          ('gn', ['MASC', 'FEM','NULL']),
+                          ('gn1', ['MASC', 'FEM','NULL']),
                           ('num1', ['SING','PLUR']),
                           ('num', ['SING','PLUR']),
-                          ('en', ['PERS','LOC','ORG','FUNC']),
-                          ('en1', ['PERS','LOC','ORG','FUNC']),
+                          ('en', ['PERS','LOC','ORG','FUNC','NULL']),
+                          ('en1', ['PERS','LOC','ORG','FUNC','NULL']),
                           ('gp', ['CASE=YES', 'CASE=NO']),
                           ('gp1', ['CASE=YES', 'CASE=NO']),
                           ('id_form',['YES','NO']),
@@ -611,7 +627,11 @@ def main_entry_point(argv=None):
                         ],
                          'data': listoflist,
                        }                  
-                arff.dumps(obj)  
+                arf = arff.dumps(obj)
+                f = open("/mnt/c/Users/miche/Desktop/demofile2.arff", "w")
+                f.write(str(arf))
+                f.close()
+
                 row['mention'] = ' '.join(
                     [
                         *row.pop('left_context'),
@@ -671,4 +691,3 @@ def main_entry_point(argv=None):
 
 if __name__ == '__main__':
     main_entry_point()
-    
