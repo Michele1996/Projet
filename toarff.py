@@ -57,6 +57,56 @@ def smart_open(
 
 
 def main_entry_point(argv=None):
+    arguments = docopt.docopt(__doc__, version=__version__, argv=argv)
+    
+    if arguments['<output>'] is None:
+        arguments['<output>'] = '-'
+
+    if arguments['--device'] is None:
+        if torch.cuda.is_available():
+            arguments['--device'] = 'cuda'
+        else:
+            arguments['--device'] = 'cpu'
+
+    gold_key = arguments['--gold-key']
+    device = torch.device(arguments['--device'])
+
+    detector = Detector.load(arguments['<model>'])
+    detector.model.to(device)
+
+    raw, digitized = load_spans(arguments['<spans>'], detector.digitize_span)
+    
+    sys_out = tag(detector.model, digitized)
+
+    results = []
+    for row, (sys_t, scores) in zip(raw, sys_out):
+        sys_tag = detector.span_types_lexicon.i2t[sys_t]
+        if (
+            arguments["--mistakes"]
+            and gold_key is not None
+            and sys_tag == row[gold_key]
+        ):
+            continue
+        if (
+            arguments["--mentions"]
+            and sys_tag == "None"
+            or gold_key is not None
+            and row[gold_key] == "None"
+        ):
+            continue
+
+        results.append(
+            {
+                **row,
+                'scores': {
+                    tag: score
+                    for tag, score in zip(detector.span_types_lexicon.i2t, scores)
+                },
+                'sys_tag': sys_tag,
+            }
+        )
+
+    if arguments['--format'] == 'csv':
         with smart_open(arguments['<output>'], 'w', newline='') as out_stream:
             i=0
             nlp = spacy.load("fr_core_news_md")
@@ -67,25 +117,10 @@ def main_entry_point(argv=None):
             #On ouvre le fichier contenant le texte brut
             file = open('/mnt/c/Users/miche/Desktop/monfichier2.txt',encoding='latin-1',errors='ignore')
             #On ouvre aussi le fichier arff et on lui inscrit l'intete
-            b = open("/mnt/c/Users/miche/Desktop/dete.arff", 'w', encoding='latin-1')
+            b = open("/mnt/c/Users/miche/Desktop/dete.arff", 'a', encoding='latin-1')
+            listoflist=[]
             import arff
-            obj = {
-                          'description': u'mention',
-                          'relation':"men",
-                          'attributes': [
-                          ('gn', ['MASC', 'FEM']),
-                          ('num', ['SING','PLUR']),
-                          ('en', ['PERS','LOC','ORG','FUNC']),
-                          ('gp', ['CASE=YES', 'CASE=NO']),
-                          ('id_form',['YES','NO']),
-                          ('subform',['YES','NO']),
-                          ('inc_rate','REAL'),
-                          ('dis_men','REAL'),
-                          ('dis_phrase','REAL'),
-                          ('dis_char','REAL'),
-                        ],
-                       }                  
-            arff.dump(obj,b)
+            
             uma1=""
             tk=0
             fi=None
@@ -102,10 +137,7 @@ def main_entry_point(argv=None):
             
             u=0
             # On prende les mentions avec leur contexte droit et gauche"""
-            
-
-            with open('data.json') as json_file:  
-            results = json.load(json_file)
+            res = results.copy()
             for row1 in results:
                 save=" "
             # uma2 sera la seule mention. row1 est la mention dans son context, donc on cherche a avoir row[content] qui est la mention en lui enlevant les caracteres superflues """
@@ -353,8 +385,8 @@ def main_entry_point(argv=None):
                      
                     
                 #On va faire la meme chose pour chaque couple de mentions. Donc mention1, mention2, mention1, mention3 ectt, double for
-                for row2 in results:
-                    uma2= str(row['content']).replace('[','').replace(']','').replace('\'','').replace(',','').replace('<start>','').replace('<end>','').replace('\"','').replace("\"m\" ","m'").replace("\"qu\" il","qu'il").replace("\"l\" ","l'").replace("  "," ").replace("\"d\" ","d'").replace("\"n\" ","n'").replace("m ","m'").replace("d ","d'").replace("l ","l'").replace("qu  ","qu'").replace("-","")
+                for row2 in res:
+                    uma2= str(row2['content']).replace('[','').replace(']','').replace('\'','').replace(',','').replace('<start>','').replace('<end>','').replace('\"','').replace("\"m\" ","m'").replace("\"qu\" il","qu'il").replace("\"l\" ","l'").replace("  "," ").replace("\"d\" ","d'").replace("\"n\" ","n'").replace("m ","m'").replace("d ","d'").replace("l ","l'").replace("qu  ","qu'").replace("-","")
                     uma2= uma2.replace("*","\'")
                     sen = []
                     bool=False
@@ -512,16 +544,22 @@ def main_entry_point(argv=None):
                        row['content']=""
                        row['right_context']
                     uma2=uma2.replace('é','e')
-                    id_form= False
+                    id_form= ""
+                    sub_form=""
+                    #Comparaison string si identique
                     if Stringa_comparaison == Stringa_comparaison1:
                        id_form='YES'
                     else:
                        id_form='NO'
                     ciao = Stringa_comparaison.split('#')
                     ciao1= Stringa_comparaison1.split('#')
+                    #Calcul du trait distance en numb de mention grace aux etiquettes #1, #2 ect
                     dis_men= int(ciao1[1])-int(ciao[1])
                     kl=0
                     kl1=0
+                    linea=0
+                    linea1=0
+                    #Calcul distance en phrase grace a la liste des phrase, on cherche les mentions dans les phrases
                     for line in list:
                         if Stringa_comparaison in line:
                            linea = kl
@@ -532,23 +570,48 @@ def main_entry_point(argv=None):
                            linea1 = kl1
                         else:
                            kl1=kl1+1
-                    dis_phrase=linea1-inea
+                    dis_phrase= linea1 - linea
+                    #Calcul de la distance en char grace au texte etiquetté, on cherche la pos initiale de chaque mention
                     it = si.find(Stringa_comparaison1)
                     it1=si.find(Stringa_comparaison)
                     dis_char=it-it1
+                    #Calcul trait subform, string in string
                     if Stringa_comparaison1 in Stringa_comparaison:
                        sub_form='YES'
                     else:
                        sub_form='NO'
+                    #Calcul inc_rate grace au module fuzzy, calcul ratio mention in une autre mention
                     from fuzzywuzzy import fuzz
-                    inc_rate=fuzz.ratio(String_comparaison1, Stringa_comparaison)
+                    inc_rate=fuzz.ratio(Stringa_comparaison1, Stringa_comparaison)
                     with smart_open("/mnt/c/Users/miche/Desktop/det.json", 'a', encoding='latin-1') as g :
                          data={"mention":[{"mention" : uma2 , "Entité Nommée": en ,"Gendre": gn ,"Nombre": num ,"GP": gp}]}
                      
                          json.dump(data,g,ensure_ascii=False, indent=4)
-                         a={[gn1,gn,en1,en,num1,num,gp1,gp,id_form, sub_form,inc_rate,dis_men,dis_phrase, dis_char]}
-                         arff.dump(b, a, relation="men") 
-                    
+                         a=[gn1,gn,en1,en,num1,num,gp1,gp,id_form, sub_form,inc_rate,dis_men,dis_phrase, dis_char]
+                         listoflist.append(a)
+                         
+                obj = {
+                          'description': u'mention',
+                          'relation':"men",
+                          'attributes': [
+                          ('gn', ['MASC', 'FEM']),
+                          ('gn1', ['MASC', 'FEM']),
+                          ('num1', ['SING','PLUR']),
+                          ('num', ['SING','PLUR']),
+                          ('en', ['PERS','LOC','ORG','FUNC']),
+                          ('en1', ['PERS','LOC','ORG','FUNC']),
+                          ('gp', ['CASE=YES', 'CASE=NO']),
+                          ('gp1', ['CASE=YES', 'CASE=NO']),
+                          ('id_form',['YES','NO']),
+                          ('subform',['YES','NO']),
+                          ('inc_rate','REAL'),
+                          ('dis_men','REAL'),
+                          ('dis_phrase','REAL'),
+                          ('dis_char','REAL'),
+                        ],
+                         'data': listoflist,
+                       }                  
+                arff.dumps(obj)  
                 row['mention'] = ' '.join(
                     [
                         *row.pop('left_context'),
